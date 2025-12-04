@@ -20,8 +20,8 @@
     <main>
         <section class="panel">
             <h2>Profile fields</h2>
-            <p class="muted">These values map directly to your profile banner and display name. For now they are placeholders that will sync with the backend you attach next.</p>
-            <form>
+            <p class="muted">These values map directly to your profile banner and display name and are now stored in your database.</p>
+            <form id="profileForm">
                 <label for="displayName">Display name</label>
                 <input id="displayName" name="displayName" type="text" placeholder="Add your name" aria-label="Display name">
 
@@ -29,7 +29,7 @@
                 <input id="bannerHeadline" name="bannerHeadline" type="text" placeholder="Add a short banner line" aria-label="Banner headline">
 
                 <div class="form-actions">
-                    <button type="button">Save locally</button>
+                    <button type="submit">Save</button>
                 </div>
             </form>
         </section>
@@ -40,7 +40,51 @@
         </section>
     </main>
 
-    <footer>Settings wait calmly for the upcoming backend</footer>
+    <footer>Settings now persist through the backend</footer>
+
+    <script>
+        const profileForm = document.getElementById('profileForm');
+        const displayNameInput = document.getElementById('displayName');
+        const bannerHeadlineInput = document.getElementById('bannerHeadline');
+
+        async function loadProfile() {
+            try {
+                const res = await fetch('/api/profile');
+                if (!res.ok) throw new Error('Failed to load profile');
+                const data = await res.json();
+                if (data.display_name) {
+                    displayNameInput.value = data.display_name;
+                }
+                if (data.banner_headline) {
+                    bannerHeadlineInput.value = data.banner_headline;
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        profileForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            try {
+                const res = await fetch('/api/profile', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        displayName: displayNameInput.value.trim(),
+                        bannerHeadline: bannerHeadlineInput.value.trim()
+                    })
+                });
+                if (!res.ok) throw new Error('Failed to save profile');
+                await res.json();
+                alert('Profile saved.');
+            } catch (e) {
+                console.error(e);
+                alert('Could not save profile. Please try again.');
+            }
+        });
+
+        loadProfile();
+    </script>
 </body>
 </html>
 

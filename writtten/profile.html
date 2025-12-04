@@ -22,12 +22,35 @@
 
         <section class="panel">
             <h2 id="profileName">Display name</h2>
-            <p class="muted">No avatar, no clutter. This profile keeps a single name and top banner, both controlled from settings once your backend is wired in.</p>
+            <p class="muted">No avatar, no clutter. This profile keeps a single name and top banner, both controlled from settings.</p>
             <a class="button-link" href="settings.html">Adjust profile fields</a>
         </section>
     </main>
 
-    <footer>Profiles stay minimal until content syncs from the server</footer>
+    <footer>Profiles now reflect saved data from the backend</footer>
+
+    <script>
+        const banner = document.getElementById('profileBanner');
+        const nameHeading = document.getElementById('profileName');
+
+        async function syncProfile() {
+            try {
+                const res = await fetch('/api/profile');
+                if (!res.ok) throw new Error('Failed to load profile');
+                const data = await res.json();
+                if (data.banner_headline) {
+                    banner.textContent = data.banner_headline;
+                }
+                if (data.display_name) {
+                    nameHeading.textContent = data.display_name;
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        syncProfile();
+    </script>
 </body>
 </html>
 

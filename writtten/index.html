@@ -20,7 +20,7 @@
     <main>
         <section class="panel">
             <h2>Feed</h2>
-            <p class="muted">No posts yet. Start the conversation by drafting the first update.</p>
+            <p id="feedHint" class="muted">Loading posts…</p>
             <button id="toggleComposer" class="composer-toggle">Write a new post</button>
 
             <form id="composer" class="hidden">
@@ -36,8 +36,8 @@
 
         <aside class="panel">
             <h2>Next step</h2>
-            <p class="muted">Render.com will host the backend. Wire the composer to your API and persist each post there. Until then, drafts stay in this session only.</p>
-            <p class="muted">Everything here is squared and monochrome so tweaks remain simple.</p>
+            <p class="muted">Posts and profile fields now save to your database. Extend these endpoints as the product grows.</p>
+            <p class="muted">Everything stays squared and monochrome so future changes remain simple to see.</p>
         </aside>
     </main>
 
@@ -48,6 +48,32 @@
         const composer = document.getElementById('composer');
         const feedList = document.getElementById('feedList');
         const postBody = document.getElementById('postBody');
+        const feedHint = document.getElementById('feedHint');
+
+        async function loadPosts() {
+            try {
+                const res = await fetch('/api/posts');
+                if (!res.ok) throw new Error('Failed to load posts');
+                const posts = await res.json();
+
+                feedList.innerHTML = '';
+                if (!posts.length) {
+                    feedHint.textContent = 'No posts yet. Start the conversation by drafting the first update.';
+                    return;
+                }
+
+                feedHint.textContent = '';
+                for (const post of posts) {
+                    const item = document.createElement('li');
+                    item.className = 'panel';
+                    item.textContent = post.body;
+                    feedList.appendChild(item);
+                }
+            } catch (e) {
+                console.error(e);
+                feedHint.textContent = 'Unable to load posts right now.';
+            }
+        }
 
         toggleComposer.addEventListener('click', () => {
             composer.classList.toggle('hidden');
@@ -56,19 +82,36 @@
             }
         });
 
-        composer.addEventListener('submit', (event) => {
+        composer.addEventListener('submit', async (event) => {
             event.preventDefault();
             const text = postBody.value.trim();
             if (!text) return;
 
-            const item = document.createElement('li');
-            item.className = 'panel';
-            item.textContent = text;
-            feedList.prepend(item);
+            try {
+                const res = await fetch('/api/posts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ body: text })
+                });
+                if (!res.ok) throw new Error('Failed to save post');
+                const created = await res.json();
 
-            postBody.value = '';
-            composer.classList.add('hidden');
+                const item = document.createElement('li');
+                item.className = 'panel';
+                item.textContent = created.body;
+                feedList.prepend(item);
+
+                postBody.value = '';
+                composer.classList.add('hidden');
+                if (feedHint) feedHint.textContent = '';
+            } catch (e) {
+                console.error(e);
+                alert('Could not save the post. Please try again.');
+            }
         });
+
+        // Initial load
+        loadPosts();
     </script>
 </body>
 </html>
