@@ -41,10 +41,15 @@ async function ensureTables() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS posts (
       id SERIAL PRIMARY KEY,
-      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
       body TEXT NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+  `);
+
+  // Make sure posts has a user_id column even if the table existed from an earlier version
+  await pool.query(`
+    ALTER TABLE posts
+    ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;
   `);
 
   // Per-user profile data
@@ -310,8 +315,8 @@ app.put('/api/profile', requireAuth, async (req, res) => {
       VALUES ($1, $2, $3)
       ON CONFLICT (user_id)
       DO UPDATE SET
-      SET display_name = $1, banner_headline = $2
-      WHERE user_profiles.user_id = $3
+        display_name = EXCLUDED.display_name,
+        banner_headline = EXCLUDED.banner_headline
       RETURNING display_name, banner_headline;
       `,
       [req.user.id, displayName || null, bannerHeadline || null]
