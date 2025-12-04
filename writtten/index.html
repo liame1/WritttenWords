@@ -14,6 +14,7 @@
             <a href="explore.html">Explore</a>
             <a href="profile.html">Profile</a>
             <a href="settings.html">Settings</a>
+            <button id="logoutButton" class="composer-toggle" style="border:none;padding:0;">Log out</button>
         </nav>
     </header>
 
@@ -49,6 +50,19 @@
         const feedList = document.getElementById('feedList');
         const postBody = document.getElementById('postBody');
         const feedHint = document.getElementById('feedHint');
+        const logoutButton = document.getElementById('logoutButton');
+
+        async function ensureLoggedIn() {
+            try {
+                const res = await fetch('/api/me');
+                if (!res.ok) {
+                    window.location.href = 'login.html';
+                }
+            } catch (e) {
+                console.error(e);
+                window.location.href = 'login.html';
+            }
+        }
 
         async function loadPosts() {
             try {
@@ -110,8 +124,20 @@
             }
         });
 
+        logoutButton.addEventListener('click', async () => {
+            try {
+                await fetch('/api/auth/logout', { method: 'POST' });
+            } catch (e) {
+                console.error(e);
+            }
+            window.location.href = 'login.html';
+        });
+
         // Initial load
-        loadPosts();
+        (async () => {
+            await ensureLoggedIn();
+            await loadPosts();
+        })();
     </script>
 </body>
 </html>

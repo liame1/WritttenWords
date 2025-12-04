@@ -21,7 +21,9 @@
   "license": "MIT",
   "dependencies": {
     "express": "^4.21.0",
-    "pg": "^8.13.0"
+    "pg": "^8.13.0",
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.7"
   }
 }
 

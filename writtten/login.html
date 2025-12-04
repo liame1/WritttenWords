@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Written · Sign in</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="single-column">
+    <header>
+        <div class="logo">Written</div>
+    </header>
+
+    <main>
+        <section class="panel">
+            <h2 id="authTitle">Create account</h2>
+            <p class="muted" id="authHint">Pick a username and password to start your own space.</p>
+
+            <form id="authForm">
+                <label for="username">Username</label>
+                <input id="username" name="username" type="text" autocomplete="username">
+
+                <label for="password">Password</label>
+                <input id="password" name="password" type="password" autocomplete="current-password">
+
+                <div class="form-actions">
+                    <button type="submit" id="authSubmit">Create account</button>
+                </div>
+            </form>
+
+            <button id="toggleMode" class="composer-toggle">Already have an account? Sign in</button>
+        </section>
+    </main>
+
+    <footer>Accounts stay simple: a name, a password, and your own space.</footer>
+
+    <script>
+        const authForm = document.getElementById('authForm');
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+        const authTitle = document.getElementById('authTitle');
+        const authHint = document.getElementById('authHint');
+        const authSubmit = document.getElementById('authSubmit');
+        const toggleMode = document.getElementById('toggleMode');
+
+        let mode = 'signup'; // or 'login'
+
+        async function checkExistingSession() {
+            try {
+                const res = await fetch('/api/me');
+                if (res.ok) {
+                    window.location.href = 'index.html';
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function updateMode() {
+            if (mode === 'signup') {
+                authTitle.textContent = 'Create account';
+                authHint.textContent = 'Pick a username and password to start your own space.';
+                authSubmit.textContent = 'Create account';
+                toggleMode.textContent = 'Already have an account? Sign in';
+            } else {
+                authTitle.textContent = 'Sign in';
+                authHint.textContent = 'Use your existing username and password.';
+                authSubmit.textContent = 'Sign in';
+                toggleMode.textContent = 'New here? Create an account';
+            }
+        }
+
+        toggleMode.addEventListener('click', () => {
+            mode = mode === 'signup' ? 'login' : 'signup';
+            updateMode();
+        });
+
+        authForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const username = usernameInput.value.trim();
+            const password = passwordInput.value;
+
+            if (!username || !password) {
+                alert('Please enter both a username and a password.');
+                return;
+            }
+
+            const path = mode === 'signup' ? '/api/auth/signup' : '/api/auth/login';
+
+            try {
+                const res = await fetch(path, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    alert(data.error || 'Something went wrong.');
+                    return;
+                }
+
+                window.location.href = 'index.html';
+            } catch (e) {
+                console.error(e);
+                alert('Could not reach the server.');
+            }
+        });
+
+        updateMode();
+        checkExistingSession();
+    </script>
+</body>
+</html>
+
+

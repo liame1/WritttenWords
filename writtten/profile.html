@@ -14,6 +14,7 @@
             <a href="explore.html">Explore</a>
             <a class="active" href="profile.html">Profile</a>
             <a href="settings.html">Settings</a>
+            <button id="logoutButton" class="composer-toggle" style="border:none;padding:0;">Log out</button>
         </nav>
     </header>
 
@@ -32,6 +33,19 @@
     <script>
         const banner = document.getElementById('profileBanner');
         const nameHeading = document.getElementById('profileName');
+        const logoutButton = document.getElementById('logoutButton');
+
+        async function ensureLoggedIn() {
+            try {
+                const res = await fetch('/api/me');
+                if (!res.ok) {
+                    window.location.href = 'login.html';
+                }
+            } catch (e) {
+                console.error(e);
+                window.location.href = 'login.html';
+            }
+        }
 
         async function syncProfile() {
             try {
@@ -49,7 +63,19 @@
             }
         }
 
-        syncProfile();
+        logoutButton.addEventListener('click', async () => {
+            try {
+                await fetch('/api/auth/logout', { method: 'POST' });
+            } catch (e) {
+                console.error(e);
+            }
+            window.location.href = 'login.html';
+        });
+
+        (async () => {
+            await ensureLoggedIn();
+            await syncProfile();
+        })();
     </script>
 </body>
 </html>
