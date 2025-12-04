@@ -80,7 +80,57 @@
                 for (const post of posts) {
                     const item = document.createElement('li');
                     item.className = 'panel';
-                    item.textContent = post.body;
+
+                    const header = document.createElement('div');
+                    header.className = 'post-header';
+
+                    const author = document.createElement('button');
+                    author.type = 'button';
+                    author.className = 'post-author';
+                    author.textContent = post.display_name || post.username || 'You';
+                    author.addEventListener('click', () => {
+                        window.location.href = 'profile.html';
+                    });
+
+                    const bodyEl = document.createElement('div');
+                    bodyEl.className = 'post-body';
+
+                    const lines = String(post.body || '').split('\n');
+                    const maxLines = 25;
+                    if (lines.length > maxLines) {
+                        const first = lines.slice(0, maxLines).join('\n');
+                        const rest = lines.slice(maxLines).join('\n');
+
+                        const visibleSpan = document.createElement('span');
+                        visibleSpan.textContent = first + '\n';
+
+                        const hiddenSpan = document.createElement('span');
+                        hiddenSpan.textContent = rest;
+                        hiddenSpan.style.display = 'none';
+
+                        bodyEl.appendChild(visibleSpan);
+                        bodyEl.appendChild(hiddenSpan);
+
+                        const readMore = document.createElement('button');
+                        readMore.type = 'button';
+                        readMore.className = 'post-read-more';
+                        readMore.textContent = 'Read more';
+                        readMore.addEventListener('click', () => {
+                            hiddenSpan.style.display = 'inline';
+                            readMore.remove();
+                        });
+
+                        item.appendChild(header);
+                        header.appendChild(author);
+                        item.appendChild(bodyEl);
+                        item.appendChild(readMore);
+                    } else {
+                        bodyEl.textContent = post.body;
+                        item.appendChild(header);
+                        header.appendChild(author);
+                        item.appendChild(bodyEl);
+                    }
+
                     feedList.appendChild(item);
                 }
             } catch (e) {
@@ -110,9 +160,60 @@
                 if (!res.ok) throw new Error('Failed to save post');
                 const created = await res.json();
 
+                // Re-render single new post using same formatting rules
                 const item = document.createElement('li');
                 item.className = 'panel';
-                item.textContent = created.body;
+
+                const header = document.createElement('div');
+                header.className = 'post-header';
+
+                const author = document.createElement('button');
+                author.type = 'button';
+                author.className = 'post-author';
+                author.textContent = created.display_name || created.username || 'You';
+                author.addEventListener('click', () => {
+                    window.location.href = 'profile.html';
+                });
+
+                const bodyEl = document.createElement('div');
+                bodyEl.className = 'post-body';
+
+                const lines = String(created.body || '').split('\n');
+                const maxLines = 25;
+                if (lines.length > maxLines) {
+                    const first = lines.slice(0, maxLines).join('\n');
+                    const rest = lines.slice(maxLines).join('\n');
+
+                    const visibleSpan = document.createElement('span');
+                    visibleSpan.textContent = first + '\n';
+
+                    const hiddenSpan = document.createElement('span');
+                    hiddenSpan.textContent = rest;
+                    hiddenSpan.style.display = 'none';
+
+                    bodyEl.appendChild(visibleSpan);
+                    bodyEl.appendChild(hiddenSpan);
+
+                    const readMore = document.createElement('button');
+                    readMore.type = 'button';
+                    readMore.className = 'post-read-more';
+                    readMore.textContent = 'Read more';
+                    readMore.addEventListener('click', () => {
+                        hiddenSpan.style.display = 'inline';
+                        readMore.remove();
+                    });
+
+                    item.appendChild(header);
+                    header.appendChild(author);
+                    item.appendChild(bodyEl);
+                    item.appendChild(readMore);
+                } else {
+                    bodyEl.textContent = created.body;
+                    item.appendChild(header);
+                    header.appendChild(author);
+                    item.appendChild(bodyEl);
+                }
+
                 feedList.prepend(item);
 
                 postBody.value = '';

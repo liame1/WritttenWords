@@ -4,6 +4,7 @@ const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const cookieParser = require('cookie-parser');
 const crypto = require('crypto');
+const multer = require('multer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -59,6 +60,13 @@ async function ensureTables() {
       display_name TEXT,
       banner_headline TEXT
     );
+  `);
+
+  // Optional banner image storage
+  await pool.query(`
+    ALTER TABLE user_profiles
+    ADD COLUMN IF NOT EXISTS banner_image BYTEA,
+    ADD COLUMN IF NOT EXISTS banner_image_type TEXT;
   `);
 }
 
@@ -326,6 +334,85 @@ app.put('/api/profile', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('PUT /api/profile error:', err);
     res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+// --- API: Profile banner image ---
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 4 * 1024 * 1024 } // 4MB
+});
+
+app.post('/api/profile/banner', requireAuth, upload.single('banner'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
+
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+  if (!allowedTypes.includes(req.file.mimetype)) {
+    return res.status(400).json({ error: 'Only JPEG, PNG, or WEBP images are allowed' });
+  }
+
+  try {
+    await pool.query(
+      `
+      INSERT INTO user_profiles (user_id, banner_image, banner_image_type)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (user_id)
+      DO UPDATE SET
+        banner_image = EXCLUDED.banner_image,
+        banner_image_type = EXCLUDED.banner_image_type;
+      `,
+      [req.user.id, req.file.buffer, req.file.mimetype]
+    );
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('POST /api/profile/banner error:', err);
+    res.status(500).json({ error: 'Failed to save banner image' });
+  }
+});
+
+app.get('/api/profile/banner', requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT banner_image, banner_image_type FROM user_profiles WHERE user_id = $1;',
+      [req.user.id]
+    );
+    const row = result.rows[0];
+    if (!row || !row.banner_image) {
+      return res.status(404).end();
+    }
+    res.setHeader('Content-Type', row.banner_image_type || 'image/jpeg');
+    res.send(row.banner_image);
+  } catch (err) {
+    console.error('GET /api/profile/banner error:', err);
+    res.status(500).end();
+  }
+});
+
+// --- API: Posts with author info ---
+app.get('/api/posts', requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `
+      SELECT p.id,
+             p.body,
+             p.created_at,
+             u.username,
+             up.display_name
+      FROM posts p
+      JOIN users u ON u.id = p.user_id
+      LEFT JOIN user_profiles up ON up.user_id = u.id
+      WHERE p.user_id = $1
+      ORDER BY p.created_at DESC;
+      `,
+      [req.user.id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('GET /api/posts error:', err);
+    res.status(500).json({ error: 'Failed to load posts' });
   }
 });
 

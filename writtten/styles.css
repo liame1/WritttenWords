@@ -78,6 +78,31 @@ main {
     font-size: 1.35rem;
 }
 
+.post-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+}
+
+.post-author {
+    text-transform: uppercase;
+    letter-spacing: 0.12rem;
+    cursor: pointer;
+}
+
+.post-body {
+    white-space: pre-wrap;
+}
+
+.post-read-more {
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1rem;
+    align-self: flex-start;
+}
+
 .feed-list {
     list-style: none;
     display: flex;

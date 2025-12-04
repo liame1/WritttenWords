@@ -19,7 +19,10 @@
     </header>
 
     <main>
-        <div class="banner" id="profileBanner">Banner headline</div>
+        <div class="banner" id="profileBanner">
+            <img id="bannerImage" alt="Banner" style="max-width:100%; max-height:240px; display:none; object-fit:cover;">
+            <span id="bannerText">Banner headline</span>
+        </div>
 
         <section class="panel">
             <h2 id="profileName">Display name</h2>
@@ -32,6 +35,8 @@
 
     <script>
         const banner = document.getElementById('profileBanner');
+        const bannerImage = document.getElementById('bannerImage');
+        const bannerText = document.getElementById('bannerText');
         const nameHeading = document.getElementById('profileName');
         const logoutButton = document.getElementById('logoutButton');
 
@@ -52,11 +57,24 @@
                 const res = await fetch('/api/profile');
                 if (!res.ok) throw new Error('Failed to load profile');
                 const data = await res.json();
-                if (data.banner_headline) {
-                    banner.textContent = data.banner_headline;
-                }
                 if (data.display_name) {
                     nameHeading.textContent = data.display_name;
+                }
+                if (data.banner_headline) {
+                    bannerText.textContent = data.banner_headline;
+                }
+
+                // Try to load banner image
+                const imgRes = await fetch('/api/profile/banner');
+                if (imgRes.ok) {
+                    const blob = await imgRes.blob();
+                    const url = URL.createObjectURL(blob);
+                    bannerImage.src = url;
+                    bannerImage.style.display = 'block';
+                    bannerText.style.display = 'none';
+                } else {
+                    bannerImage.style.display = 'none';
+                    bannerText.style.display = 'inline';
                 }
             } catch (e) {
                 console.error(e);

@@ -21,13 +21,16 @@
     <main>
         <section class="panel">
             <h2>Profile fields</h2>
-            <p class="muted">These values map directly to your profile banner and display name and are now stored in your database.</p>
+            <p class="muted">These values map directly to your profile and are stored in your database.</p>
             <form id="profileForm">
                 <label for="displayName">Display name</label>
                 <input id="displayName" name="displayName" type="text" placeholder="Add your name" aria-label="Display name">
 
-                <label for="bannerHeadline">Banner headline</label>
+                <label for="bannerHeadline">Banner text (used only if no image)</label>
                 <input id="bannerHeadline" name="bannerHeadline" type="text" placeholder="Add a short banner line" aria-label="Banner headline">
+
+                <label for="bannerFile">Banner image (max 4MB)</label>
+                <input id="bannerFile" name="banner" type="file" accept="image/*" aria-label="Banner image">
 
                 <div class="form-actions">
                     <button type="submit">Save</button>
@@ -47,6 +50,7 @@
         const profileForm = document.getElementById('profileForm');
         const displayNameInput = document.getElementById('displayName');
         const bannerHeadlineInput = document.getElementById('bannerHeadline');
+        const bannerFileInput = document.getElementById('bannerFile');
         const logoutButton = document.getElementById('logoutButton');
 
         async function ensureLoggedIn() {
@@ -90,6 +94,20 @@
                 });
                 if (!res.ok) throw new Error('Failed to save profile');
                 await res.json();
+                // If a banner file is selected, upload it separately
+                if (bannerFileInput.files && bannerFileInput.files[0]) {
+                    const formData = new FormData();
+                    formData.append('banner', bannerFileInput.files[0]);
+                    const bannerRes = await fetch('/api/profile/banner', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    if (!bannerRes.ok) {
+                        const msg = await bannerRes.json().catch(() => ({}));
+                        alert(msg.error || 'Banner image could not be saved.');
+                        return;
+                    }
+                }
                 alert('Profile saved.');
             } catch (e) {
                 console.error(e);
