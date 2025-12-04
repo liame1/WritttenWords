@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Written · Feed</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <div class="logo">Written</div>
+        <nav>
+            <a class="active" href="index.html">Feed</a>
+            <a href="explore.html">Explore</a>
+            <a href="profile.html">Profile</a>
+            <a href="settings.html">Settings</a>
+        </nav>
+    </header>
+
+    <main>
+        <section class="panel">
+            <h2>Feed</h2>
+            <p class="muted">No posts yet. Start the conversation by drafting the first update.</p>
+            <button id="toggleComposer" class="composer-toggle">Write a new post</button>
+
+            <form id="composer" class="hidden">
+                <label for="postBody">Post</label>
+                <textarea id="postBody" name="postBody" placeholder="Put your thoughts here." aria-label="Post body"></textarea>
+                <div class="form-actions">
+                    <button type="submit">Post to feed</button>
+                </div>
+            </form>
+
+            <ul id="feedList" class="feed-list"></ul>
+        </section>
+
+        <aside class="panel">
+            <h2>Next step</h2>
+            <p class="muted">Render.com will host the backend. Wire the composer to your API and persist each post there. Until then, drafts stay in this session only.</p>
+            <p class="muted">Everything here is squared and monochrome so tweaks remain simple.</p>
+        </aside>
+    </main>
+
+    <footer>Wired for clarity · Source Serif 4 throughout</footer>
+
+    <script>
+        const toggleComposer = document.getElementById('toggleComposer');
+        const composer = document.getElementById('composer');
+        const feedList = document.getElementById('feedList');
+        const postBody = document.getElementById('postBody');
+
+        toggleComposer.addEventListener('click', () => {
+            composer.classList.toggle('hidden');
+            if (!composer.classList.contains('hidden')) {
+                postBody.focus();
+            }
+        });
+
+        composer.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const text = postBody.value.trim();
+            if (!text) return;
+
+            const item = document.createElement('li');
+            item.className = 'panel';
+            item.textContent = text;
+            feedList.prepend(item);
+
+            postBody.value = '';
+            composer.classList.add('hidden');
+        });
+    </script>
+</body>
+</html>
+

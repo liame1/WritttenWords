@@ -1,0 +1,27 @@
+{
+  "name": "written",
+  "version": "1.0.0",
+  "description": "Minimal Node server for the Written social layout, ready for Render.com deployment.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "NODE_ENV=development node server.js"
+  },
+  "engines": {
+    "node": ">=18.x"
+  },
+  "keywords": [
+    "render",
+    "node",
+    "express",
+    "social",
+    "minimal"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.0"
+  }
+}
+
+

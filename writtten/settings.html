@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Written · Settings</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="single-column">
+    <header>
+        <div class="logo">Written</div>
+        <nav>
+            <a href="index.html">Feed</a>
+            <a href="explore.html">Explore</a>
+            <a href="profile.html">Profile</a>
+            <a class="active" href="settings.html">Settings</a>
+        </nav>
+    </header>
+
+    <main>
+        <section class="panel">
+            <h2>Profile fields</h2>
+            <p class="muted">These values map directly to your profile banner and display name. For now they are placeholders that will sync with the backend you attach next.</p>
+            <form>
+                <label for="displayName">Display name</label>
+                <input id="displayName" name="displayName" type="text" placeholder="Add your name" aria-label="Display name">
+
+                <label for="bannerHeadline">Banner headline</label>
+                <input id="bannerHeadline" name="bannerHeadline" type="text" placeholder="Add a short banner line" aria-label="Banner headline">
+
+                <div class="form-actions">
+                    <button type="button">Save locally</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="panel">
+            <h2>Feed preferences</h2>
+            <p class="muted">Hook this form to your Render-hosted Node service to track sorting, muting, or draft retention. Keeping it empty today means your first saved preference will be the real one.</p>
+        </section>
+    </main>
+
+    <footer>Settings wait calmly for the upcoming backend</footer>
+</body>
+</html>
+
