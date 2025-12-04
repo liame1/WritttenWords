@@ -267,43 +267,11 @@ app.post('/api/auth/logout', async (req, res) => {
   res.json({ ok: true });
 });
 
-// --- API: Posts ---
-app.get('/api/posts', requireAuth, async (req, res) => {
-  try {
-    const result = await pool.query(
-      'SELECT id, body, created_at FROM posts WHERE user_id = $1 ORDER BY created_at DESC;',
-      [req.user.id]
-    );
-    res.json(result.rows);
-  } catch (err) {
-    console.error('GET /api/posts error:', err);
-    res.status(500).json({ error: 'Failed to load posts' });
-  }
-});
-
-app.post('/api/posts', requireAuth, async (req, res) => {
-  const { body } = req.body || {};
-  if (!body || typeof body !== 'string' || !body.trim()) {
-    return res.status(400).json({ error: 'Post body is required' });
-  }
-
-  try {
-    const result = await pool.query(
-      'INSERT INTO posts (user_id, body) VALUES ($1, $2) RETURNING id, body, created_at;',
-      [req.user.id, body.trim()]
-    );
-    res.status(201).json(result.rows[0]);
-  } catch (err) {
-    console.error('POST /api/posts error:', err);
-    res.status(500).json({ error: 'Failed to create post' });
-  }
-});
-
 // --- API: Profile ---
 app.get('/api/profile', requireAuth, async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT display_name, banner_headline FROM user_profiles WHERE user_id = $1;',
+      'SELECT display_name FROM user_profiles WHERE user_id = $1;',
       [req.user.id]
     );
     res.json(result.rows[0] || {});
@@ -314,20 +282,19 @@ app.get('/api/profile', requireAuth, async (req, res) => {
 });
 
 app.put('/api/profile', requireAuth, async (req, res) => {
-  const { displayName, bannerHeadline } = req.body || {};
+  const { displayName } = req.body || {};
 
   try {
     const result = await pool.query(
       `
-      INSERT INTO user_profiles (user_id, display_name, banner_headline)
-      VALUES ($1, $2, $3)
+      INSERT INTO user_profiles (user_id, display_name)
+      VALUES ($1, $2)
       ON CONFLICT (user_id)
       DO UPDATE SET
-        display_name = EXCLUDED.display_name,
-        banner_headline = EXCLUDED.banner_headline
-      RETURNING display_name, banner_headline;
+        display_name = EXCLUDED.display_name
+      RETURNING display_name;
       `,
-      [req.user.id, displayName || null, bannerHeadline || null]
+      [req.user.id, displayName || null]
     );
 
     res.json(result.rows[0]);
@@ -340,7 +307,7 @@ app.put('/api/profile', requireAuth, async (req, res) => {
 // --- API: Profile banner image ---
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 4 * 1024 * 1024 } // 4MB
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB
 });
 
 app.post('/api/profile/banner', requireAuth, upload.single('banner'), async (req, res) => {
@@ -370,6 +337,42 @@ app.post('/api/profile/banner', requireAuth, upload.single('banner'), async (req
   } catch (err) {
     console.error('POST /api/profile/banner error:', err);
     res.status(500).json({ error: 'Failed to save banner image' });
+  }
+});
+
+// --- API: Posts (create) ---
+app.post('/api/posts', requireAuth, async (req, res) => {
+  const { body } = req.body || {};
+  if (!body || typeof body !== 'string' || !body.trim()) {
+    return res.status(400).json({ error: 'Post body is required' });
+  }
+
+  try {
+    const inserted = await pool.query(
+      'INSERT INTO posts (user_id, body) VALUES ($1, $2) RETURNING id, body, created_at, user_id;',
+      [req.user.id, body.trim()]
+    );
+    const post = inserted.rows[0];
+
+    const withAuthor = await pool.query(
+      `
+      SELECT p.id,
+             p.body,
+             p.created_at,
+             u.username,
+             up.display_name
+      FROM posts p
+      JOIN users u ON u.id = p.user_id
+      LEFT JOIN user_profiles up ON up.user_id = u.id
+      WHERE p.id = $1;
+      `,
+      [post.id]
+    );
+
+    res.status(201).json(withAuthor.rows[0]);
+  } catch (err) {
+    console.error('POST /api/posts error:', err);
+    res.status(500).json({ error: 'Failed to create post' });
   }
 });
 
@@ -404,15 +407,34 @@ app.get('/api/posts', requireAuth, async (req, res) => {
       FROM posts p
       JOIN users u ON u.id = p.user_id
       LEFT JOIN user_profiles up ON up.user_id = u.id
-      WHERE p.user_id = $1
       ORDER BY p.created_at DESC;
-      `,
-      [req.user.id]
+      `
     );
     res.json(result.rows);
   } catch (err) {
     console.error('GET /api/posts error:', err);
     res.status(500).json({ error: 'Failed to load posts' });
+  }
+});
+
+// Posts for current user's profile
+app.get('/api/profile/posts', requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `
+      SELECT id,
+             body,
+             created_at
+      FROM posts
+      WHERE user_id = $1
+      ORDER BY created_at DESC;
+      `,
+      [req.user.id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('GET /api/profile/posts error:', err);
+    res.status(500).json({ error: 'Failed to load profile posts' });
   }
 });
 

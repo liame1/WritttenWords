@@ -26,10 +26,7 @@
                 <label for="displayName">Display name</label>
                 <input id="displayName" name="displayName" type="text" placeholder="Add your name" aria-label="Display name">
 
-                <label for="bannerHeadline">Banner text (used only if no image)</label>
-                <input id="bannerHeadline" name="bannerHeadline" type="text" placeholder="Add a short banner line" aria-label="Banner headline">
-
-                <label for="bannerFile">Banner image (max 4MB)</label>
+                <label for="bannerFile">Banner image (max 10MB)</label>
                 <input id="bannerFile" name="banner" type="file" accept="image/*" aria-label="Banner image">
 
                 <div class="form-actions">
@@ -49,7 +46,6 @@
     <script>
         const profileForm = document.getElementById('profileForm');
         const displayNameInput = document.getElementById('displayName');
-        const bannerHeadlineInput = document.getElementById('bannerHeadline');
         const bannerFileInput = document.getElementById('bannerFile');
         const logoutButton = document.getElementById('logoutButton');
 
@@ -88,8 +84,7 @@
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        displayName: displayNameInput.value.trim(),
-                        bannerHeadline: bannerHeadlineInput.value.trim()
+                        displayName: displayNameInput.value.trim()
                     })
                 });
                 if (!res.ok) throw new Error('Failed to save profile');

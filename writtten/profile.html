@@ -20,14 +20,18 @@
 
     <main>
         <div class="banner" id="profileBanner">
-            <img id="bannerImage" alt="Banner" style="max-width:100%; max-height:240px; display:none; object-fit:cover;">
-            <span id="bannerText">Banner headline</span>
+            <img id="bannerImage" alt="Banner" style="display:none;">
         </div>
 
         <section class="panel">
             <h2 id="profileName">Display name</h2>
             <p class="muted">No avatar, no clutter. This profile keeps a single name and top banner, both controlled from settings.</p>
             <a class="button-link" href="settings.html">Adjust profile fields</a>
+        </section>
+
+        <section class="panel">
+            <h2>Your posts</h2>
+            <ul id="profilePosts" class="feed-list"></ul>
         </section>
     </main>
 
@@ -36,8 +40,8 @@
     <script>
         const banner = document.getElementById('profileBanner');
         const bannerImage = document.getElementById('bannerImage');
-        const bannerText = document.getElementById('bannerText');
         const nameHeading = document.getElementById('profileName');
+        const profilePosts = document.getElementById('profilePosts');
         const logoutButton = document.getElementById('logoutButton');
 
         async function ensureLoggedIn() {
@@ -60,9 +64,6 @@
                 if (data.display_name) {
                     nameHeading.textContent = data.display_name;
                 }
-                if (data.banner_headline) {
-                    bannerText.textContent = data.banner_headline;
-                }
 
                 // Try to load banner image
                 const imgRes = await fetch('/api/profile/banner');
@@ -71,10 +72,31 @@
                     const url = URL.createObjectURL(blob);
                     bannerImage.src = url;
                     bannerImage.style.display = 'block';
-                    bannerText.style.display = 'none';
                 } else {
                     bannerImage.style.display = 'none';
-                    bannerText.style.display = 'inline';
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function loadProfilePosts() {
+            try {
+                const res = await fetch('/api/profile/posts');
+                if (!res.ok) throw new Error('Failed to load profile posts');
+                const posts = await res.json();
+
+                profilePosts.innerHTML = '';
+                for (const post of posts) {
+                    const li = document.createElement('li');
+                    li.className = 'panel';
+
+                    const bodyEl = document.createElement('div');
+                    bodyEl.className = 'post-body';
+                    bodyEl.textContent = post.body;
+
+                    li.appendChild(bodyEl);
+                    profilePosts.appendChild(li);
                 }
             } catch (e) {
                 console.error(e);
@@ -93,6 +115,7 @@
         (async () => {
             await ensureLoggedIn();
             await syncProfile();
+            await loadProfilePosts();
         })();
     </script>
 </body>
