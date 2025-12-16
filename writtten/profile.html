@@ -26,11 +26,12 @@
         <section class="panel">
             <h2 id="profileName">Display name</h2>
             <p class="muted">No avatar, no clutter. This profile keeps a single name and top banner, both controlled from settings.</p>
-            <a class="button-link" href="settings.html">Adjust profile fields</a>
+            <a id="adjustProfileLink" class="button-link" href="settings.html">Adjust profile fields</a>
+            <button id="subscribeButton" class="composer-toggle" type="button" style="margin-top:1rem;"></button>
         </section>
 
         <section class="panel">
-            <h2>Your posts</h2>
+            <h2 id="postsHeading">Your posts</h2>
             <ul id="profilePosts" class="feed-list"></ul>
         </section>
     </main>
@@ -42,6 +43,9 @@
         const bannerImage = document.getElementById('bannerImage');
         const nameHeading = document.getElementById('profileName');
         const profilePosts = document.getElementById('profilePosts');
+        const postsHeading = document.getElementById('postsHeading');
+        const adjustProfileLink = document.getElementById('adjustProfileLink');
+        const subscribeButton = document.getElementById('subscribeButton');
         const logoutButton = document.getElementById('logoutButton');
 
         let currentUser = null;
@@ -108,10 +112,55 @@
                 } else {
                     bannerImage.style.display = 'none';
                 }
+
+                // Control visibility of adjust link vs subscribe button and posts heading
+                if (isViewingSelf()) {
+                    adjustProfileLink.style.display = 'inline-block';
+                    subscribeButton.style.display = 'none';
+                    postsHeading.textContent = 'Your posts';
+                } else {
+                    adjustProfileLink.style.display = 'none';
+                    subscribeButton.style.display = 'inline-block';
+                    postsHeading.textContent = 'Posts';
+                    await syncSubscriptionButton();
+                }
             } catch (e) {
                 console.error(e);
             }
         }
+
+        async function syncSubscriptionButton() {
+            const username = getQueryUsername();
+            if (!username || isViewingSelf()) return;
+            try {
+                const res = await fetch(`/api/subscription/status?username=${encodeURIComponent(username)}`);
+                if (!res.ok) throw new Error('Failed to check subscription status');
+                const data = await res.json();
+                subscribeButton.textContent = data.followed ? 'Unsubscribe' : 'Subscribe';
+            } catch (e) {
+                console.error(e);
+                subscribeButton.textContent = 'Subscribe';
+            }
+        }
+
+        subscribeButton.addEventListener('click', async () => {
+            const username = getQueryUsername();
+            if (!username || isViewingSelf()) return;
+            const currentlyUnsubscribing = subscribeButton.textContent === 'Unsubscribe';
+            try {
+                const method = currentlyUnsubscribing ? 'DELETE' : 'POST';
+                const res = await fetch('/api/subscribe', {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username })
+                });
+                if (!res.ok) throw new Error('Failed to update subscription');
+                await syncSubscriptionButton();
+            } catch (e) {
+                console.error(e);
+                alert('Could not update subscription. Please try again.');
+            }
+        });
 
         async function loadProfilePosts() {
             const username = getQueryUsername();
