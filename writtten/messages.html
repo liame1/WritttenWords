@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WordJournal · Messages</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <div class="logo">WordJournal</div>
+        <nav>
+            <a href="index.html">Feed</a>
+            <a class="active" href="messages.html">Messages</a>
+            <a href="profile.html">Profile</a>
+            <a href="settings.html">Settings</a>
+            <button id="logoutButton" class="composer-toggle" style="border:none;padding:0;">Log out</button>
+        </nav>
+    </header>
+
+    <main>
+        <section class="panel" style="grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 1rem;">
+            <aside style="border-right: 1px solid var(--border); padding-right: 1rem;">
+                <h2>Conversations</h2>
+                <ul id="conversationsList" class="feed-list"></ul>
+                <p id="conversationsHint" class="muted">No conversations yet.</p>
+                <h3 style="margin-top: 1.5rem; font-size: 1rem;">Start new conversation</h3>
+                <form id="newConversationForm" style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                    <input id="newConversationUsername" type="text" placeholder="Username" style="flex: 1;">
+                    <button type="submit">Start</button>
+                </form>
+            </aside>
+
+            <div id="messageArea" style="display: flex; flex-direction: column;">
+                <div id="noConversation" style="flex: 1; display: flex; align-items: center; justify-content: center;">
+                    <p class="muted">Select a conversation to start messaging.</p>
+                </div>
+
+                <div id="activeConversation" style="display: none; flex: 1; flex-direction: column;">
+                    <div id="conversationHeader" style="border-bottom: 1px solid var(--border); padding-bottom: 1rem; margin-bottom: 1rem;">
+                        <h2 id="conversationUserName">User</h2>
+                    </div>
+
+                    <div id="messagesList" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1rem;"></div>
+
+                    <form id="messageForm">
+                        <textarea id="messageBody" name="messageBody" placeholder="Type your message..." rows="3" style="width: 100%; margin-bottom: 0.5rem;"></textarea>
+                        <div class="form-actions">
+                            <button type="submit">Send</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>Messages stay private between you and the recipient</footer>
+
+    <script>
+        const conversationsList = document.getElementById('conversationsList');
+        const conversationsHint = document.getElementById('conversationsHint');
+        const messageArea = document.getElementById('messageArea');
+        const noConversation = document.getElementById('noConversation');
+        const activeConversation = document.getElementById('activeConversation');
+        const conversationHeader = document.getElementById('conversationHeader');
+        const conversationUserName = document.getElementById('conversationUserName');
+        const messagesList = document.getElementById('messagesList');
+        const messageForm = document.getElementById('messageForm');
+        const messageBody = document.getElementById('messageBody');
+        const logoutButton = document.getElementById('logoutButton');
+        const newConversationForm = document.getElementById('newConversationForm');
+        const newConversationUsername = document.getElementById('newConversationUsername');
+
+        let currentConversationUsername = null;
+        let pollInterval = null;
+
+        async function ensureLoggedIn() {
+            try {
+                const res = await fetch('/api/me');
+                if (!res.ok) {
+                    window.location.href = 'login.html';
+                }
+            } catch (e) {
+                console.error(e);
+                window.location.href = 'login.html';
+            }
+        }
+
+        async function loadConversations() {
+            try {
+                const res = await fetch('/api/messages/conversations');
+                if (!res.ok) throw new Error('Failed to load conversations');
+                const conversations = await res.json();
+
+                conversationsList.innerHTML = '';
+                if (!conversations.length) {
+                    conversationsHint.textContent = 'No conversations yet.';
+                    return;
+                }
+
+                conversationsHint.textContent = '';
+                for (const conv of conversations) {
+                    const li = document.createElement('li');
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'post-author';
+                    button.style.width = '100%';
+                    button.style.textAlign = 'left';
+                    button.textContent = conv.display_name || conv.username;
+                    button.addEventListener('click', () => {
+                        openConversation(conv.username);
+                    });
+                    li.appendChild(button);
+                    conversationsList.appendChild(li);
+                }
+            } catch (e) {
+                console.error(e);
+                conversationsHint.textContent = 'Unable to load conversations.';
+            }
+        }
+
+        function openConversation(username) {
+            currentConversationUsername = username;
+            conversationUserName.textContent = username;
+            noConversation.style.display = 'none';
+            activeConversation.style.display = 'flex';
+            loadMessages();
+            startPolling();
+        }
+
+        async function loadMessages() {
+            if (!currentConversationUsername) return;
+
+            try {
+                const res = await fetch(`/api/messages/${encodeURIComponent(currentConversationUsername)}`);
+                if (!res.ok) throw new Error('Failed to load messages');
+                const messages = await res.json();
+
+                messagesList.innerHTML = '';
+                for (const msg of messages) {
+                    const msgDiv = document.createElement('div');
+                    msgDiv.className = 'panel';
+                    msgDiv.style.alignSelf = msg.is_sent ? 'flex-end' : 'flex-start';
+                    msgDiv.style.maxWidth = '70%';
+
+                    const bodyEl = document.createElement('div');
+                    bodyEl.className = 'post-body';
+                    bodyEl.textContent = msg.body;
+
+                    const meta = document.createElement('div');
+                    meta.className = 'post-meta';
+                    if (msg.created_at) {
+                        const when = new Date(msg.created_at);
+                        meta.textContent = when.toLocaleString();
+                    }
+
+                    msgDiv.appendChild(bodyEl);
+                    msgDiv.appendChild(meta);
+                    messagesList.appendChild(msgDiv);
+                }
+
+                messagesList.scrollTop = messagesList.scrollHeight;
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function startPolling() {
+            if (pollInterval) clearInterval(pollInterval);
+            pollInterval = setInterval(() => {
+                if (currentConversationUsername) {
+                    loadMessages();
+                }
+            }, 3000);
+        }
+
+        newConversationForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const username = newConversationUsername.value.trim();
+            if (!username) return;
+
+            try {
+                const res = await fetch(`/api/users/${encodeURIComponent(username)}/profile`, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                if (!res.ok) {
+                    alert('User not found.');
+                    return;
+                }
+                newConversationUsername.value = '';
+                openConversation(username);
+            } catch (e) {
+                console.error(e);
+                alert('Could not find user. Please try again.');
+            }
+        });
+
+        messageForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const text = messageBody.value.trim();
+            if (!text || !currentConversationUsername) return;
+
+            try {
+                const res = await fetch(`/api/messages/${encodeURIComponent(currentConversationUsername)}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ body: text })
+                });
+                if (!res.ok) throw new Error('Failed to send message');
+                messageBody.value = '';
+                await loadMessages();
+                await loadConversations();
+            } catch (e) {
+                console.error(e);
+                alert('Could not send message. Please try again.');
+            }
+        });
+
+        logoutButton.addEventListener('click', async () => {
+            if (pollInterval) clearInterval(pollInterval);
+            try {
+                await fetch('/api/auth/logout', { method: 'POST' });
+            } catch (e) {
+                console.error(e);
+            }
+            window.location.href = 'login.html';
+        });
+
+        (async () => {
+            await ensureLoggedIn();
+            await loadConversations();
+        })();
+    </script>
+</body>
+</html>
+

@@ -43,7 +43,7 @@
         const authSubmit = document.getElementById('authSubmit');
         const toggleMode = document.getElementById('toggleMode');
 
-        let mode = 'signup'; // or 'login'
+        let mode = 'login'; // or 'signup'
 
         async function checkExistingSession() {
             try {
@@ -57,21 +57,21 @@
         }
 
         function updateMode() {
-            if (mode === 'signup') {
-                authTitle.textContent = 'Create account';
-                authHint.textContent = 'Pick a username and password to start your own space.';
-                authSubmit.textContent = 'Create account';
-                toggleMode.textContent = 'Already have an account? Sign in';
-            } else {
+            if (mode === 'login') {
                 authTitle.textContent = 'Sign in';
                 authHint.textContent = 'Use your existing username and password.';
                 authSubmit.textContent = 'Sign in';
                 toggleMode.textContent = 'New here? Create an account';
+            } else {
+                authTitle.textContent = 'Create account';
+                authHint.textContent = 'Pick a username and password to start your own space.';
+                authSubmit.textContent = 'Create account';
+                toggleMode.textContent = 'Already have an account? Sign in';
             }
         }
 
         toggleMode.addEventListener('click', () => {
-            mode = mode === 'signup' ? 'login' : 'signup';
+            mode = mode === 'login' ? 'signup' : 'login';
             updateMode();
         });
 

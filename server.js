@@ -80,6 +80,17 @@ async function ensureTables() {
       CONSTRAINT subscriptions_no_self CHECK (follower_id <> followee_id)
     );
   `);
+
+  // Messages between users
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS messages (
+      id SERIAL PRIMARY KEY,
+      sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      recipient_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      body TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
 }
 
 ensureTables().catch((err) => {
@@ -144,8 +155,8 @@ app.get('/feed', (req, res) => {
   res.sendFile(path.join(staticRoot, 'index.html'));
 });
 
-app.get('/explore', (req, res) => {
-  res.sendFile(path.join(staticRoot, 'explore.html'));
+app.get('/messages', (req, res) => {
+  res.sendFile(path.join(staticRoot, 'messages.html'));
 });
 
 app.get('/profile', (req, res) => {
@@ -550,6 +561,111 @@ app.get('/api/users/:username/posts', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('GET /api/users/:username/posts error:', err);
     res.status(500).json({ error: 'Failed to load user posts' });
+  }
+});
+
+// --- API: Messages ---
+// Get all conversations (users you've messaged or who've messaged you)
+app.get('/api/messages/conversations', requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `
+      WITH conversation_partners AS (
+        SELECT DISTINCT
+          CASE 
+            WHEN sender_id = $1 THEN recipient_id
+            ELSE sender_id
+          END AS other_user_id
+        FROM messages
+        WHERE sender_id = $1 OR recipient_id = $1
+      )
+      SELECT 
+        cp.other_user_id,
+        u.username,
+        up.display_name,
+        (
+          SELECT body FROM messages m
+          WHERE (m.sender_id = $1 AND m.recipient_id = cp.other_user_id)
+             OR (m.sender_id = cp.other_user_id AND m.recipient_id = $1)
+          ORDER BY m.created_at DESC LIMIT 1
+        ) AS last_message_body,
+        (
+          SELECT created_at FROM messages m
+          WHERE (m.sender_id = $1 AND m.recipient_id = cp.other_user_id)
+             OR (m.sender_id = cp.other_user_id AND m.recipient_id = $1)
+          ORDER BY m.created_at DESC LIMIT 1
+        ) AS last_message_at
+      FROM conversation_partners cp
+      JOIN users u ON u.id = cp.other_user_id
+      LEFT JOIN user_profiles up ON up.user_id = u.id
+      ORDER BY last_message_at DESC NULLS LAST;
+      `,
+      [req.user.id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('GET /api/messages/conversations error:', err);
+    res.status(500).json({ error: 'Failed to load conversations' });
+  }
+});
+
+// Get messages with a specific user
+app.get('/api/messages/:username', requireAuth, async (req, res) => {
+  try {
+    const otherUser = await findUserByUsername(req.params.username);
+    if (!otherUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const result = await pool.query(
+      `
+      SELECT m.id,
+             m.body,
+             m.created_at,
+             m.sender_id,
+             CASE WHEN m.sender_id = $1 THEN true ELSE false END AS is_sent
+      FROM messages m
+      WHERE (m.sender_id = $1 AND m.recipient_id = $2)
+         OR (m.sender_id = $2 AND m.recipient_id = $1)
+      ORDER BY m.created_at ASC;
+      `,
+      [req.user.id, otherUser.id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('GET /api/messages/:username error:', err);
+    res.status(500).json({ error: 'Failed to load messages' });
+  }
+});
+
+// Send a message to a user
+app.post('/api/messages/:username', requireAuth, async (req, res) => {
+  const { body } = req.body || {};
+  if (!body || typeof body !== 'string' || !body.trim()) {
+    return res.status(400).json({ error: 'Message body is required' });
+  }
+
+  try {
+    const recipient = await findUserByUsername(req.params.username);
+    if (!recipient) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    if (recipient.id === req.user.id) {
+      return res.status(400).json({ error: 'Cannot message yourself' });
+    }
+
+    const result = await pool.query(
+      'INSERT INTO messages (sender_id, recipient_id, body) VALUES ($1, $2, $3) RETURNING id, body, created_at, sender_id;',
+      [req.user.id, recipient.id, body.trim()]
+    );
+
+    res.status(201).json({
+      ...result.rows[0],
+      is_sent: true
+    });
+  } catch (err) {
+    console.error('POST /api/messages/:username error:', err);
+    res.status(500).json({ error: 'Failed to send message' });
   }
 });
 
