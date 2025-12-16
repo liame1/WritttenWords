@@ -36,9 +36,9 @@
         </section>
 
         <aside class="panel">
-            <h2>Next step</h2>
-            <p class="muted">Posts and profile fields now save to your database. Extend these endpoints as the product grows.</p>
-            <p class="muted">Everything stays squared and monochrome so future changes remain simple to see.</p>
+            <h2>Following</h2>
+            <p class="muted" id="followingHint">No subscriptions yet.</p>
+            <ul id="followingList" class="feed-list"></ul>
         </aside>
     </main>
 
@@ -51,6 +51,8 @@
         const postBody = document.getElementById('postBody');
         const feedHint = document.getElementById('feedHint');
         const logoutButton = document.getElementById('logoutButton');
+        const followingList = document.getElementById('followingList');
+        const followingHint = document.getElementById('followingHint');
 
         async function ensureLoggedIn() {
             try {
@@ -62,6 +64,14 @@
                 console.error(e);
                 window.location.href = 'login.html';
             }
+        }
+
+        function getProfileUrlForPost(post) {
+            const username = post.username;
+            if (!username) {
+                return 'profile.html';
+            }
+            return `profile.html?u=${encodeURIComponent(username)}`;
         }
 
         async function loadPosts() {
@@ -89,7 +99,7 @@
                     author.className = 'post-author';
                     author.textContent = post.display_name || post.username || 'You';
                     author.addEventListener('click', () => {
-                        window.location.href = 'profile.html';
+                        window.location.href = getProfileUrlForPost(post);
                     });
 
                     const bodyEl = document.createElement('div');
@@ -172,7 +182,7 @@
                 author.className = 'post-author';
                 author.textContent = created.display_name || created.username || 'You';
                 author.addEventListener('click', () => {
-                    window.location.href = 'profile.html';
+                    window.location.href = getProfileUrlForPost(created);
                 });
 
                 const bodyEl = document.createElement('div');
@@ -225,6 +235,37 @@
             }
         });
 
+        async function loadFollowing() {
+            try {
+                const res = await fetch('/api/subscriptions');
+                if (!res.ok) throw new Error('Failed to load subscriptions');
+                const subs = await res.json();
+
+                followingList.innerHTML = '';
+                if (!subs.length) {
+                    followingHint.textContent = 'No subscriptions yet.';
+                    return;
+                }
+
+                followingHint.textContent = '';
+                for (const sub of subs) {
+                    const li = document.createElement('li');
+                    const link = document.createElement('button');
+                    link.type = 'button';
+                    link.className = 'post-author';
+                    link.textContent = sub.display_name || sub.username;
+                    link.addEventListener('click', () => {
+                        window.location.href = `profile.html?u=${encodeURIComponent(sub.username)}`;
+                    });
+                    li.appendChild(link);
+                    followingList.appendChild(li);
+                }
+            } catch (e) {
+                console.error(e);
+                followingHint.textContent = 'Unable to load subscriptions.';
+            }
+        }
+
         logoutButton.addEventListener('click', async () => {
             try {
                 await fetch('/api/auth/logout', { method: 'POST' });
@@ -238,6 +279,7 @@
         (async () => {
             await ensureLoggedIn();
             await loadPosts();
+            await loadFollowing();
         })();
     </script>
 </body>

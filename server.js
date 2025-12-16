@@ -68,6 +68,17 @@ async function ensureTables() {
     ADD COLUMN IF NOT EXISTS banner_image BYTEA,
     ADD COLUMN IF NOT EXISTS banner_image_type TEXT;
   `);
+
+  // Subscriptions (follow relationships)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS subscriptions (
+      follower_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      followee_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      CONSTRAINT subscriptions_pk PRIMARY KEY (follower_id, followee_id),
+      CONSTRAINT subscriptions_no_self CHECK (follower_id <> followee_id)
+    );
+  `);
 }
 
 ensureTables().catch((err) => {
@@ -159,6 +170,16 @@ async function createSession(userId) {
     [id, userId]
   );
   return id;
+}
+
+async function findUserByUsername(username) {
+  const name = (username || '').trim();
+  if (!name) return null;
+  const result = await pool.query(
+    'SELECT id, username FROM users WHERE username = $1;',
+    [name]
+  );
+  return result.rows[0] || null;
 }
 
 // --- API: Auth ---
@@ -281,6 +302,29 @@ app.get('/api/profile', requireAuth, async (req, res) => {
   }
 });
 
+// Public-style profile lookup by username (requires viewer auth, but arbitrary user)
+app.get('/api/users/:username/profile', requireAuth, async (req, res) => {
+  try {
+    const user = await findUserByUsername(req.params.username);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const result = await pool.query(
+      'SELECT display_name FROM user_profiles WHERE user_id = $1;',
+      [user.id]
+    );
+
+    res.json({
+      username: user.username,
+      display_name: result.rows[0]?.display_name || null
+    });
+  } catch (err) {
+    console.error('GET /api/users/:username/profile error:', err);
+    res.status(500).json({ error: 'Failed to load user profile' });
+  }
+});
+
 app.put('/api/profile', requireAuth, async (req, res) => {
   const { displayName } = req.body || {};
 
@@ -376,6 +420,92 @@ app.post('/api/posts', requireAuth, async (req, res) => {
   }
 });
 
+// --- API: Subscriptions (follow) ---
+app.get('/api/subscriptions', requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `
+      SELECT u.username,
+             up.display_name
+      FROM subscriptions s
+      JOIN users u ON u.id = s.followee_id
+      LEFT JOIN user_profiles up ON up.user_id = u.id
+      WHERE s.follower_id = $1
+      ORDER BY u.username ASC;
+      `,
+      [req.user.id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('GET /api/subscriptions error:', err);
+    res.status(500).json({ error: 'Failed to load subscriptions' });
+  }
+});
+
+app.get('/api/subscription/status', requireAuth, async (req, res) => {
+  const username = req.query.username || '';
+  try {
+    const user = await findUserByUsername(username);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const result = await pool.query(
+      'SELECT 1 FROM subscriptions WHERE follower_id = $1 AND followee_id = $2;',
+      [req.user.id, user.id]
+    );
+    res.json({ followed: !!result.rows[0] });
+  } catch (err) {
+    console.error('GET /api/subscription/status error:', err);
+    res.status(500).json({ error: 'Failed to check subscription status' });
+  }
+});
+
+app.post('/api/subscribe', requireAuth, async (req, res) => {
+  const { username } = req.body || {};
+  try {
+    const target = await findUserByUsername(username);
+    if (!target) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    if (target.id === req.user.id) {
+      return res.status(400).json({ error: 'Cannot subscribe to yourself' });
+    }
+
+    await pool.query(
+      `
+      INSERT INTO subscriptions (follower_id, followee_id)
+      VALUES ($1, $2)
+      ON CONFLICT (follower_id, followee_id) DO NOTHING;
+      `,
+      [req.user.id, target.id]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('POST /api/subscribe error:', err);
+    res.status(500).json({ error: 'Failed to subscribe' });
+  }
+});
+
+app.delete('/api/subscribe', requireAuth, async (req, res) => {
+  const { username } = req.body || {};
+  try {
+    const target = await findUserByUsername(username);
+    if (!target) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    await pool.query(
+      'DELETE FROM subscriptions WHERE follower_id = $1 AND followee_id = $2;',
+      [req.user.id, target.id]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('DELETE /api/subscribe error:', err);
+    res.status(500).json({ error: 'Failed to unsubscribe' });
+  }
+});
+
 app.get('/api/profile/banner', requireAuth, async (req, res) => {
   try {
     const result = await pool.query(
@@ -390,6 +520,29 @@ app.get('/api/profile/banner', requireAuth, async (req, res) => {
     res.send(row.banner_image);
   } catch (err) {
     console.error('GET /api/profile/banner error:', err);
+    res.status(500).end();
+  }
+});
+
+app.get('/api/users/:username/banner', requireAuth, async (req, res) => {
+  try {
+    const user = await findUserByUsername(req.params.username);
+    if (!user) {
+      return res.status(404).end();
+    }
+
+    const result = await pool.query(
+      'SELECT banner_image, banner_image_type FROM user_profiles WHERE user_id = $1;',
+      [user.id]
+    );
+    const row = result.rows[0];
+    if (!row || !row.banner_image) {
+      return res.status(404).end();
+    }
+    res.setHeader('Content-Type', row.banner_image_type || 'image/jpeg');
+    res.send(row.banner_image);
+  } catch (err) {
+    console.error('GET /api/users/:username/banner error:', err);
     res.status(500).end();
   }
 });
@@ -435,6 +588,32 @@ app.get('/api/profile/posts', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('GET /api/profile/posts error:', err);
     res.status(500).json({ error: 'Failed to load profile posts' });
+  }
+});
+
+// Posts for an arbitrary user by username
+app.get('/api/users/:username/posts', requireAuth, async (req, res) => {
+  try {
+    const user = await findUserByUsername(req.params.username);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const result = await pool.query(
+      `
+      SELECT id,
+             body,
+             created_at
+      FROM posts
+      WHERE user_id = $1
+      ORDER BY created_at DESC;
+      `,
+      [user.id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('GET /api/users/:username/posts error:', err);
+    res.status(500).json({ error: 'Failed to load user posts' });
   }
 });
 
