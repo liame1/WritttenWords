@@ -91,6 +91,10 @@
                     const item = document.createElement('li');
                     item.className = 'panel';
 
+                    if (post.profile_color) {
+                        item.style.borderColor = post.profile_color;
+                    }
+
                     const header = document.createElement('div');
                     header.className = 'post-header';
 
@@ -101,6 +105,13 @@
                     author.addEventListener('click', () => {
                         window.location.href = getProfileUrlForPost(post);
                     });
+
+                    const meta = document.createElement('div');
+                    meta.className = 'post-meta';
+                    if (post.created_at) {
+                        const when = new Date(post.created_at);
+                        meta.textContent = when.toLocaleString();
+                    }
 
                     const bodyEl = document.createElement('div');
                     bodyEl.className = 'post-body';
@@ -130,14 +141,16 @@
                             readMore.remove();
                         });
 
-                        item.appendChild(header);
                         header.appendChild(author);
+                        header.appendChild(meta);
+                        item.appendChild(header);
                         item.appendChild(bodyEl);
                         item.appendChild(readMore);
                     } else {
                         bodyEl.textContent = post.body;
-                        item.appendChild(header);
                         header.appendChild(author);
+                        header.appendChild(meta);
+                        item.appendChild(header);
                         item.appendChild(bodyEl);
                     }
 
@@ -174,6 +187,10 @@
                 const item = document.createElement('li');
                 item.className = 'panel';
 
+                if (created.profile_color) {
+                    item.style.borderColor = created.profile_color;
+                }
+
                 const header = document.createElement('div');
                 header.className = 'post-header';
 
@@ -184,6 +201,13 @@
                 author.addEventListener('click', () => {
                     window.location.href = getProfileUrlForPost(created);
                 });
+
+                const meta = document.createElement('div');
+                meta.className = 'post-meta';
+                if (created.created_at) {
+                    const when = new Date(created.created_at);
+                    meta.textContent = when.toLocaleString();
+                }
 
                 const bodyEl = document.createElement('div');
                 bodyEl.className = 'post-body';
@@ -213,14 +237,16 @@
                         readMore.remove();
                     });
 
-                    item.appendChild(header);
                     header.appendChild(author);
+                    header.appendChild(meta);
+                    item.appendChild(header);
                     item.appendChild(bodyEl);
                     item.appendChild(readMore);
                 } else {
                     bodyEl.textContent = created.body;
-                    item.appendChild(header);
                     header.appendChild(author);
+                    header.appendChild(meta);
+                    item.appendChild(header);
                     item.appendChild(bodyEl);
                 }
 

@@ -19,15 +19,13 @@
     </header>
 
     <main>
-        <div class="banner" id="profileBanner">
-            <img id="bannerImage" alt="Banner" style="display:none;">
-        </div>
-
         <section class="panel">
-            <h2 id="profileName">Display name</h2>
-            <p class="muted">No avatar, no clutter. This profile keeps a single name and top banner, both controlled from settings.</p>
+            <div class="profile-header-row">
+                <h2 id="profileName">Display name</h2>
+                <button id="subscribeButton" class="subscribe-button" type="button"></button>
+            </div>
+            <p class="muted">No avatar, no clutter. This profile keeps a single name and color, both controlled from settings.</p>
             <a id="adjustProfileLink" class="button-link" href="settings.html">Adjust profile fields</a>
-            <button id="subscribeButton" class="composer-toggle" type="button" style="margin-top:1rem;"></button>
         </section>
 
         <section class="panel">
@@ -39,8 +37,6 @@
     <footer>Profiles now reflect saved data from the backend</footer>
 
     <script>
-        const banner = document.getElementById('profileBanner');
-        const bannerImage = document.getElementById('bannerImage');
         const nameHeading = document.getElementById('profileName');
         const profilePosts = document.getElementById('profilePosts');
         const postsHeading = document.getElementById('postsHeading');
@@ -96,21 +92,6 @@
                     nameHeading.textContent = data.display_name;
                 } else if (data.username) {
                     nameHeading.textContent = data.username;
-                }
-
-                // Try to load banner image
-                const imgRes = await fetch(
-                    !username || isViewingSelf()
-                        ? '/api/profile/banner'
-                        : `/api/users/${encodeURIComponent(username)}/banner`
-                );
-                if (imgRes.ok) {
-                    const blob = await imgRes.blob();
-                    const url = URL.createObjectURL(blob);
-                    bannerImage.src = url;
-                    bannerImage.style.display = 'block';
-                } else {
-                    bannerImage.style.display = 'none';
                 }
 
                 // Control visibility of adjust link vs subscribe button and posts heading
@@ -178,11 +159,23 @@
                     const li = document.createElement('li');
                     li.className = 'panel';
 
+                    if (post.profile_color) {
+                        li.style.borderColor = post.profile_color;
+                    }
+
                     const bodyEl = document.createElement('div');
                     bodyEl.className = 'post-body';
                     bodyEl.textContent = post.body;
 
+                    const meta = document.createElement('div');
+                    meta.className = 'post-meta';
+                    if (post.created_at) {
+                        const when = new Date(post.created_at);
+                        meta.textContent = when.toLocaleString();
+                    }
+
                     li.appendChild(bodyEl);
+                    li.appendChild(meta);
                     profilePosts.appendChild(li);
                 }
             } catch (e) {

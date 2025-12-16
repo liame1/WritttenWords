@@ -95,6 +95,13 @@ main {
     white-space: pre-wrap;
 }
 
+.post-meta {
+    font-size: 0.75rem;
+    letter-spacing: 0.05rem;
+    text-transform: uppercase;
+    color: rgba(17, 17, 17, 0.7);
+}
+
 .post-read-more {
     margin-top: 0.5rem;
     font-size: 0.9rem;
@@ -148,24 +155,18 @@ textarea {
     display: none;
 }
 
-.banner {
-    border: 1px solid var(--border);
-    width: 100%;
-    height: 20vh;
-    min-height: 120px;
-    max-height: 220px;
-    margin-bottom: 2rem;
-    background-color: #dcdcdc;
+.profile-header-row {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
 }
 
-.banner img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+.subscribe-button {
+    font-size: 0.8rem;
+    padding: 0.25rem 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1rem;
 }
 
 .form-grid {

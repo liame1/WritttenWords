@@ -4,7 +4,6 @@ const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const cookieParser = require('cookie-parser');
 const crypto = require('crypto');
-const multer = require('multer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -62,11 +61,12 @@ async function ensureTables() {
     );
   `);
 
-  // Optional banner image storage
+  // Optional storage columns that are no longer used for banners
   await pool.query(`
     ALTER TABLE user_profiles
     ADD COLUMN IF NOT EXISTS banner_image BYTEA,
-    ADD COLUMN IF NOT EXISTS banner_image_type TEXT;
+    ADD COLUMN IF NOT EXISTS banner_image_type TEXT,
+    ADD COLUMN IF NOT EXISTS profile_color TEXT;
   `);
 
   // Subscriptions (follow relationships)
@@ -215,8 +215,8 @@ app.post('/api/auth/signup', async (req, res) => {
 
     // Create empty profile row
     await pool.query(
-      'INSERT INTO user_profiles (user_id, display_name, banner_headline) VALUES ($1, $2, $3);',
-      [user.id, 'Display name', 'Banner headline']
+      'INSERT INTO user_profiles (user_id, display_name) VALUES ($1, $2);',
+      [user.id, 'Display name']
     );
 
     const sessionId = await createSession(user.id);
@@ -292,7 +292,7 @@ app.post('/api/auth/logout', async (req, res) => {
 app.get('/api/profile', requireAuth, async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT display_name FROM user_profiles WHERE user_id = $1;',
+      'SELECT display_name, profile_color FROM user_profiles WHERE user_id = $1;',
       [req.user.id]
     );
     res.json(result.rows[0] || {});
@@ -311,13 +311,15 @@ app.get('/api/users/:username/profile', requireAuth, async (req, res) => {
     }
 
     const result = await pool.query(
-      'SELECT display_name FROM user_profiles WHERE user_id = $1;',
+      'SELECT display_name, profile_color FROM user_profiles WHERE user_id = $1;',
       [user.id]
     );
 
+    const row = result.rows[0] || {};
     res.json({
       username: user.username,
-      display_name: result.rows[0]?.display_name || null
+      display_name: row.display_name || null,
+      profile_color: row.profile_color || null
     });
   } catch (err) {
     console.error('GET /api/users/:username/profile error:', err);
@@ -326,61 +328,26 @@ app.get('/api/users/:username/profile', requireAuth, async (req, res) => {
 });
 
 app.put('/api/profile', requireAuth, async (req, res) => {
-  const { displayName } = req.body || {};
+  const { displayName, profileColor } = req.body || {};
 
   try {
     const result = await pool.query(
       `
-      INSERT INTO user_profiles (user_id, display_name)
-      VALUES ($1, $2)
+      INSERT INTO user_profiles (user_id, display_name, profile_color)
+      VALUES ($1, $2, $3)
       ON CONFLICT (user_id)
       DO UPDATE SET
-        display_name = EXCLUDED.display_name
-      RETURNING display_name;
+        display_name = EXCLUDED.display_name,
+        profile_color = EXCLUDED.profile_color
+      RETURNING display_name, profile_color;
       `,
-      [req.user.id, displayName || null]
+      [req.user.id, displayName || null, profileColor || null]
     );
 
     res.json(result.rows[0]);
   } catch (err) {
     console.error('PUT /api/profile error:', err);
     res.status(500).json({ error: 'Failed to update profile' });
-  }
-});
-
-// --- API: Profile banner image ---
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB
-});
-
-app.post('/api/profile/banner', requireAuth, upload.single('banner'), async (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ error: 'No file uploaded' });
-  }
-
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
-  if (!allowedTypes.includes(req.file.mimetype)) {
-    return res.status(400).json({ error: 'Only JPEG, PNG, or WEBP images are allowed' });
-  }
-
-  try {
-    await pool.query(
-      `
-      INSERT INTO user_profiles (user_id, banner_image, banner_image_type)
-      VALUES ($1, $2, $3)
-      ON CONFLICT (user_id)
-      DO UPDATE SET
-        banner_image = EXCLUDED.banner_image,
-        banner_image_type = EXCLUDED.banner_image_type;
-      `,
-      [req.user.id, req.file.buffer, req.file.mimetype]
-    );
-
-    res.json({ ok: true });
-  } catch (err) {
-    console.error('POST /api/profile/banner error:', err);
-    res.status(500).json({ error: 'Failed to save banner image' });
   }
 });
 
@@ -506,46 +473,7 @@ app.delete('/api/subscribe', requireAuth, async (req, res) => {
   }
 });
 
-app.get('/api/profile/banner', requireAuth, async (req, res) => {
-  try {
-    const result = await pool.query(
-      'SELECT banner_image, banner_image_type FROM user_profiles WHERE user_id = $1;',
-      [req.user.id]
-    );
-    const row = result.rows[0];
-    if (!row || !row.banner_image) {
-      return res.status(404).end();
-    }
-    res.setHeader('Content-Type', row.banner_image_type || 'image/jpeg');
-    res.send(row.banner_image);
-  } catch (err) {
-    console.error('GET /api/profile/banner error:', err);
-    res.status(500).end();
-  }
-});
-
-app.get('/api/users/:username/banner', requireAuth, async (req, res) => {
-  try {
-    const user = await findUserByUsername(req.params.username);
-    if (!user) {
-      return res.status(404).end();
-    }
-
-    const result = await pool.query(
-      'SELECT banner_image, banner_image_type FROM user_profiles WHERE user_id = $1;',
-      [user.id]
-    );
-    const row = result.rows[0];
-    if (!row || !row.banner_image) {
-      return res.status(404).end();
-    }
-    res.setHeader('Content-Type', row.banner_image_type || 'image/jpeg');
-    res.send(row.banner_image);
-  } catch (err) {
-    console.error('GET /api/users/:username/banner error:', err);
-    res.status(500).end();
-  }
-});
+// banner image routes removed; profile color is now used instead
 
 // --- API: Posts with author info ---
 app.get('/api/posts', requireAuth, async (req, res) => {
@@ -556,7 +484,8 @@ app.get('/api/posts', requireAuth, async (req, res) => {
              p.body,
              p.created_at,
              u.username,
-             up.display_name
+             up.display_name,
+             up.profile_color
       FROM posts p
       JOIN users u ON u.id = p.user_id
       LEFT JOIN user_profiles up ON up.user_id = u.id
@@ -575,12 +504,14 @@ app.get('/api/profile/posts', requireAuth, async (req, res) => {
   try {
     const result = await pool.query(
       `
-      SELECT id,
-             body,
-             created_at
-      FROM posts
-      WHERE user_id = $1
-      ORDER BY created_at DESC;
+      SELECT p.id,
+             p.body,
+             p.created_at,
+             up.profile_color
+      FROM posts p
+      LEFT JOIN user_profiles up ON up.user_id = p.user_id
+      WHERE p.user_id = $1
+      ORDER BY p.created_at DESC;
       `,
       [req.user.id]
     );
@@ -601,12 +532,14 @@ app.get('/api/users/:username/posts', requireAuth, async (req, res) => {
 
     const result = await pool.query(
       `
-      SELECT id,
-             body,
-             created_at
-      FROM posts
-      WHERE user_id = $1
-      ORDER BY created_at DESC;
+      SELECT p.id,
+             p.body,
+             p.created_at,
+             up.profile_color
+      FROM posts p
+      LEFT JOIN user_profiles up ON up.user_id = p.user_id
+      WHERE p.user_id = $1
+      ORDER BY p.created_at DESC;
       `,
       [user.id]
     );
