@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Written · Profile</title>
+    <title>WordJournal · Profile</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body class="single-column">
     <header>
-        <div class="logo">Written</div>
+        <div class="logo">WordJournal</div>
         <nav>
             <a href="index.html">Feed</a>
             <a href="explore.html">Explore</a>
@@ -24,7 +24,7 @@
                 <h2 id="profileName">Display name</h2>
                 <button id="subscribeButton" class="subscribe-button" type="button"></button>
             </div>
-            <p class="muted">No avatar, no clutter. This profile keeps a single name and color, both controlled from settings.</p>
+            <p id="profileBio" class="muted"></p>
             <a id="adjustProfileLink" class="button-link" href="settings.html">Adjust profile fields</a>
         </section>
 
@@ -38,6 +38,7 @@
 
     <script>
         const nameHeading = document.getElementById('profileName');
+        const profileBio = document.getElementById('profileBio');
         const profilePosts = document.getElementById('profilePosts');
         const postsHeading = document.getElementById('postsHeading');
         const adjustProfileLink = document.getElementById('adjustProfileLink');
@@ -93,6 +94,8 @@
                 } else if (data.username) {
                     nameHeading.textContent = data.username;
                 }
+
+                profileBio.textContent = data.bio || '';
 
                 // Control visibility of adjust link vs subscribe button and posts heading
                 if (isViewingSelf()) {

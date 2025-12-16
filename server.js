@@ -66,7 +66,8 @@ async function ensureTables() {
     ALTER TABLE user_profiles
     ADD COLUMN IF NOT EXISTS banner_image BYTEA,
     ADD COLUMN IF NOT EXISTS banner_image_type TEXT,
-    ADD COLUMN IF NOT EXISTS profile_color TEXT;
+    ADD COLUMN IF NOT EXISTS profile_color TEXT,
+    ADD COLUMN IF NOT EXISTS bio TEXT;
   `);
 
   // Subscriptions (follow relationships)
@@ -292,7 +293,7 @@ app.post('/api/auth/logout', async (req, res) => {
 app.get('/api/profile', requireAuth, async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT display_name, profile_color FROM user_profiles WHERE user_id = $1;',
+      'SELECT display_name, profile_color, bio FROM user_profiles WHERE user_id = $1;',
       [req.user.id]
     );
     res.json(result.rows[0] || {});
@@ -311,7 +312,7 @@ app.get('/api/users/:username/profile', requireAuth, async (req, res) => {
     }
 
     const result = await pool.query(
-      'SELECT display_name, profile_color FROM user_profiles WHERE user_id = $1;',
+      'SELECT display_name, profile_color, bio FROM user_profiles WHERE user_id = $1;',
       [user.id]
     );
 
@@ -319,7 +320,8 @@ app.get('/api/users/:username/profile', requireAuth, async (req, res) => {
     res.json({
       username: user.username,
       display_name: row.display_name || null,
-      profile_color: row.profile_color || null
+      profile_color: row.profile_color || null,
+      bio: row.bio || null
     });
   } catch (err) {
     console.error('GET /api/users/:username/profile error:', err);
@@ -328,20 +330,21 @@ app.get('/api/users/:username/profile', requireAuth, async (req, res) => {
 });
 
 app.put('/api/profile', requireAuth, async (req, res) => {
-  const { displayName, profileColor } = req.body || {};
+  const { displayName, profileColor, bio } = req.body || {};
 
   try {
     const result = await pool.query(
       `
-      INSERT INTO user_profiles (user_id, display_name, profile_color)
-      VALUES ($1, $2, $3)
+      INSERT INTO user_profiles (user_id, display_name, profile_color, bio)
+      VALUES ($1, $2, $3, $4)
       ON CONFLICT (user_id)
       DO UPDATE SET
         display_name = EXCLUDED.display_name,
-        profile_color = EXCLUDED.profile_color
-      RETURNING display_name, profile_color;
+        profile_color = EXCLUDED.profile_color,
+        bio = EXCLUDED.bio
+      RETURNING display_name, profile_color, bio;
       `,
-      [req.user.id, displayName || null, profileColor || null]
+      [req.user.id, displayName || null, profileColor || null, bio || null]
     );
 
     res.json(result.rows[0]);

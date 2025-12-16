@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Written · Settings</title>
+    <title>WordJournal · Settings</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body class="single-column">
     <header>
-        <div class="logo">Written</div>
+        <div class="logo">WordJournal</div>
         <nav>
             <a href="index.html">Feed</a>
             <a href="explore.html">Explore</a>
@@ -29,6 +29,9 @@
                 <label for="profileColor">Profile color</label>
                 <input id="profileColor" name="profileColor" type="color" aria-label="Profile color">
 
+                <label for="bio">Biography</label>
+                <textarea id="bio" name="bio" rows="4" aria-label="Biography" placeholder="Write a short bio for your profile."></textarea>
+
                 <div class="form-actions">
                     <button type="submit">Save</button>
                 </div>
@@ -47,6 +50,7 @@
         const profileForm = document.getElementById('profileForm');
         const displayNameInput = document.getElementById('displayName');
         const profileColorInput = document.getElementById('profileColor');
+        const bioInput = document.getElementById('bio');
         const logoutButton = document.getElementById('logoutButton');
 
         async function ensureLoggedIn() {
@@ -72,6 +76,9 @@
                 if (data.profile_color) {
                     profileColorInput.value = data.profile_color;
                 }
+                if (data.bio) {
+                    bioInput.value = data.bio;
+                }
             } catch (e) {
                 console.error(e);
             }
@@ -85,7 +92,8 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         displayName: displayNameInput.value.trim(),
-                        profileColor: profileColorInput.value || null
+                        profileColor: profileColorInput.value || null,
+                        bio: bioInput.value.trim() || null
                     })
                 });
                 if (!res.ok) throw new Error('Failed to save profile');
